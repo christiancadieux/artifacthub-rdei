@@ -88,14 +88,14 @@ const HomeView = () => {
       <div className={`jumbotron mb-0 text-center border-0 ${styles.jumbotron}`}>
         <div
           role="banner"
-          aria-label="Find, install and publisher Kubernetes packages"
+          aria-label="Find, install and publisher RDEI Kubernetes packages"
           className={`display-4 text-center d-block d-xxl-flex justify-content-center noFocus ${styles.mainTitle}`}
           id="content"
           tabIndex={-1}
         >
           Find, install and publish
           <br />
-          <span className={styles.secondLine}>Kubernetes packages</span>
+          <span className={styles.secondLine}>RDEI Kubernetes packages</span>
         </div>
 
         <div className="mt-4 mt-sm-5 text-center">

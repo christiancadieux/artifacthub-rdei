@@ -3,6 +3,7 @@ package repo
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net/url"
 	"path"
@@ -38,16 +39,20 @@ func (l *HelmIndexLoader) LoadIndex(r *hub.Repository) (*helmrepo.IndexFile, str
 			},
 		},
 	}
+	fmt.Printf("repoConfig = %+v \n", repoConfig)
 	chartRepository, err := helmrepo.NewChartRepository(repoConfig, getters)
 	if err != nil {
+		fmt.Printf("NewChartRepository error - %v \n", err)
 		return nil, "", err
 	}
 	indexBytes, err := downloadIndexFile(chartRepository)
 	if err != nil {
+		fmt.Printf("downloadIndexFile error - %v \n", err)
 		return nil, "", err
 	}
 	indexFile, err := loadIndexFile(indexBytes)
 	if err != nil {
+		fmt.Printf("loadIndexFile error - %v \n", err)
 		return nil, "", err
 	}
 	return indexFile, getDigest(indexBytes), nil

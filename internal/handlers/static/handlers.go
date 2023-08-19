@@ -136,9 +136,7 @@ func (h *Handlers) Index(w http.ResponseWriter, r *http.Request) {
 		title = h.cfg.GetString("theme.siteName")
 	}
 	description, _ := r.Context().Value(hub.IndexMetaDescriptionKey).(string)
-	if description == "" {
-		description = "Find, install and publish Kubernetes packages"
-	}
+	description = "Find, install and publish RDEI Kubernetes packages"
 	openGraphImage := h.cfg.GetString("theme.images.openGraphImage")
 	if !strings.HasPrefix(openGraphImage, "http") {
 		openGraphImage = h.cfg.GetString("server.baseURL") + openGraphImage
