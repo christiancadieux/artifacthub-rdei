@@ -405,7 +405,14 @@ class API_CLASS {
   }
 
   public getUserProfile(): Promise<Profile> {
-    return this.apiFetch({ url: `${this.API_BASE_URL}/users/profile` });
+    const lsidOff = window.location.search.indexOf('rdei_sid=');
+    console.log('getUserProfile', window.location.search);
+    let suffix = '';
+    if (lsidOff > 0) {
+      // const lsid = window.location.search.substring(lsidOff + 5);
+      suffix = window.location.search;
+    }
+    return this.apiFetch({ url: `${this.API_BASE_URL}/users/profile${suffix}` });
   }
 
   public checkPasswordStrength(pwd: string): Promise<boolean> {

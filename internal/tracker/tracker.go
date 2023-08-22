@@ -34,11 +34,17 @@ func New(svc *hub.TrackerServices, r *hub.Repository, logger zerolog.Logger) *Tr
 func (t *Tracker) Run() error {
 	// Check if repository has been updated since last time it was processed
 	remoteDigest, err := t.svc.Rm.GetRemoteDigest(t.svc.Ctx, t.r)
+
+	fmt.Println("tracker.Run GetRemoteDigest", t.r.URL)
 	if err != nil {
+		fmt.Println("tracker.Run GetRemoteDigest FAIL", t.r.URL)
 		return fmt.Errorf("error getting repository remote digest: %w", err)
+	} else {
+		fmt.Println("tracker.Run GetRemoteDigest PASS", t.r.URL)
 	}
 	bypassDigestCheck := t.svc.Cfg.GetBool("tracker.bypassDigestCheck")
 	if remoteDigest != "" && t.r.Digest == remoteDigest && !bypassDigestCheck {
+		fmt.Println("tracker.Run !bypassDigestCheck PASS", t.r.URL)
 		return nil
 	}
 
@@ -49,6 +55,7 @@ func (t *Tracker) Run() error {
 	// Clone repository when applicable and get its metadata
 	tmpDir, packagesPath, err := t.cloneRepository()
 	if err != nil {
+		fmt.Println("tracker.Run error cloning")
 		return fmt.Errorf("error cloning repository: %w", err)
 	}
 	if tmpDir != "" {

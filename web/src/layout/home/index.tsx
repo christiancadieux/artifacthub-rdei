@@ -124,7 +124,6 @@ const HomeView = () => {
           </div>
 
           <div className="d-none d-md-inline-block text-center mt-5">
-            {sampleQueries.length > 0 ? <>You can also </> : <>Or you can also </>}
             <Link
               className="btn btn-link textLighter fw-semibold py-0 pb-1 ps-1 pe-0"
               to={{
@@ -166,45 +165,6 @@ const HomeView = () => {
 
         {!whiteLabel && (
           <>
-            <div className={`text-center h5 my-4 mt-md-5 ${styles.legend}`}>
-              Artifact Hub is an <span className="fw-semibold">Open Source</span> project
-            </div>
-
-            <div className="d-flex flex-row align-items-center justify-content-center flex-wrap">
-              <ExternalLink
-                className={`btn btn-secondary mb-4 mb-md-2 ${styles.socialBtn}`}
-                href="https://github.com/artifacthub/hub"
-                label="Open GitHub link"
-              >
-                <div className="d-flex align-items-center justify-content-center">
-                  <FaGithub className="me-2" />
-                  GitHub
-                </div>
-              </ExternalLink>
-
-              <ExternalLink
-                className={`btn btn-secondary ms-2 ms-md-3 mb-4 mb-md-2 ${styles.socialBtn}`}
-                href="https://cloud-native.slack.com/channels/artifact-hub"
-                label="Open Slack channel"
-              >
-                <div className="d-flex align-items-center justify-content-center">
-                  <FaSlack className="me-2" />
-                  Slack
-                </div>
-              </ExternalLink>
-
-              <ExternalLink
-                className={`btn btn-secondary ms-2 ms-md-3 mb-4 mb-md-2 ${styles.socialBtn}`}
-                href="https://twitter.com/cncfartifacthub"
-                label="Open Twitter link"
-              >
-                <div className="d-flex align-items-center justify-content-center">
-                  <FaTwitter className="me-2" />
-                  Twitter
-                </div>
-              </ExternalLink>
-            </div>
-
             <div className={`text-center mx-3 mt-md-4 mb-0 mb-sm-4 fw-light ${styles.repoGuideText}`}>
               Please see the{' '}
               <ExternalLink

@@ -66,13 +66,16 @@ type UserManager interface {
 	CheckAvailability(ctx context.Context, resourceKind, value string) (bool, error)
 	CheckCredentials(ctx context.Context, email, password string) (*CheckCredentialsOutput, error)
 	CheckSession(ctx context.Context, sessionID string, duration time.Duration) (*CheckSessionOutput, error)
+
 	DeleteSession(ctx context.Context, sessionID string) error
 	DeleteUser(ctx context.Context, code string) error
 	DisableTFA(ctx context.Context, passcode string) error
+	AddUser(ctx context.Context, rdeiUserId string, alias string, email string, name string) error
 	EnableTFA(ctx context.Context, passcode string) error
 	GetProfile(ctx context.Context) (*User, error)
 	GetProfileJSON(ctx context.Context) ([]byte, error)
 	GetUserID(ctx context.Context, email string) (string, error)
+	GetUserIDFromAlias(ctx context.Context, email string) (string, error)
 	RegisterDeleteUserCode(ctx context.Context) error
 	RegisterPasswordResetCode(ctx context.Context, userEmail string) error
 	RegisterSession(ctx context.Context, session *Session) (*Session, error)

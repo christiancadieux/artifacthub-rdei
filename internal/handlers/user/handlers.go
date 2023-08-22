@@ -14,8 +14,10 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/artifacthub/hub/internal/handlers/helpers"
@@ -133,6 +135,7 @@ func NewHandlers(
 // passcode.
 func (h *Handlers) ApproveSession(w http.ResponseWriter, r *http.Request) {
 	// Get passcode from input
+	fmt.Println("Approve Session")
 	var input map[string]string
 	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil || input["passcode"] == "" {
@@ -168,10 +171,11 @@ func (h *Handlers) ApproveSession(w http.ResponseWriter, r *http.Request) {
 
 // BasicAuth is a middleware that provides basic auth support.
 func (h *Handlers) BasicAuth(next http.Handler) http.Handler {
+
 	validUser := []byte(h.cfg.GetString("server.basicAuth.username"))
 	validPass := []byte(h.cfg.GetString("server.basicAuth.password"))
 	realm := h.cfg.GetString("theme.siteName")
-
+	fmt.Println("Basic Auth")
 	areCredentialsValid := func(user, pass []byte) bool {
 		if subtle.ConstantTimeCompare(user, validUser) != 1 {
 			return false
@@ -297,6 +301,7 @@ func (h *Handlers) EnableTFA(w http.ResponseWriter, r *http.Request) {
 
 // GetProfile is an http handler used to get a logged in user profile.
 func (h *Handlers) GetProfile(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("CALLING GetProfile")
 	dataJSON, err := h.userManager.GetProfileJSON(r.Context())
 	if err != nil {
 		h.logger.Error().Err(err).Str("method", "GetProfile").Send()
@@ -304,6 +309,25 @@ func (h *Handlers) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	helpers.RenderJSON(w, dataJSON, 0, http.StatusOK)
+}
+
+const (
+	SIDNAME = "rdei_sid"
+)
+
+func setCookie(w http.ResponseWriter, name, value string) {
+	dur := os.Getenv("SESSION_MINS")
+	dur_m := int64(60)
+	if dur != "" {
+		v, err := strconv.ParseInt(dur, 10, 32)
+		if err == nil {
+			dur_m = v
+		}
+	}
+	expiration := time.Now().Add(time.Duration(dur_m) * time.Minute)
+	cookie := http.Cookie{Name: name, Value: value, Expires: expiration, Path: "/"}
+	http.SetCookie(w, &cookie)
+	log.Print(cookie)
 }
 
 // InjectUserID is a middleware that injects the id of the user doing the
@@ -327,6 +351,7 @@ func (h *Handlers) InjectUserID(next http.Handler) http.Handler {
 		if err != nil {
 			return
 		}
+		fmt.Println()
 		var sessionID string
 		if err = h.sc.Decode(sessionCookieName, cookie.Value, &sessionID); err != nil {
 			return
@@ -433,7 +458,7 @@ func (h *Handlers) Logout(w http.ResponseWriter, r *http.Request) {
 // authentication process, registering the user if needed.
 func (h *Handlers) OauthCallback(w http.ResponseWriter, r *http.Request) {
 	logger := h.logger.With().Str("method", "OauthCallback").Logger()
-
+	fmt.Println("CALLING OauthCallback")
 	// Validate oauth code and state
 	code := r.FormValue("code")
 	if code == "" {
@@ -575,6 +600,7 @@ func (h *Handlers) RegisterPasswordResetCode(w http.ResponseWriter, r *http.Requ
 
 // RegisterUser is an http handler used to register a user in the hub database.
 func (h *Handlers) RegisterUser(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("CALLING RegisterUser")
 	if !h.cfg.GetBool("server.allowUserSignUp") {
 		h.logger.Error().Msg("New users sign up is disabled")
 		helpers.RenderErrorWithCodeJSON(w, nil, http.StatusForbidden)
@@ -792,17 +818,181 @@ func (h *Handlers) newUserFromOIDProfile(
 	}, nil
 }
 
+const (
+	TOK_LEN = 36
+	SZ1     = 84
+	SZ2     = 40
+)
+
+func swap(s0 string) string {
+	s := []byte(s0)
+	i := 1
+	for {
+		tmp := s[i]
+		s[i] = s[SZ1-i]
+		s[SZ1-i] = tmp
+		i += 3
+		if i > SZ2 {
+			break
+		}
+	}
+	return string(s)
+}
+
+func validate(rdeiSessionId string) (string, string, error) {
+
+	if len(rdeiSessionId) != SZ1 {
+		return "", "", fmt.Errorf("Invalid session length")
+	}
+
+	tok0 := swap(rdeiSessionId)
+
+	userId := tok0[0:TOK_LEN]
+	facId := tok0[TOK_LEN+1 : TOK_LEN*2+1]
+	times := tok0[TOK_LEN*2+2:]
+	old_i, err := strconv.ParseInt(times, 10, 32)
+	if err != nil {
+		return "", "", fmt.Errorf(" Invalid session %s", rdeiSessionId)
+	}
+	now_unix := time.Now().Unix()
+	age_sec := now_unix - old_i
+	if age_sec/60 > 12*60 {
+		return "", "", fmt.Errorf(" Expired session %s", rdeiSessionId)
+	}
+	return userId, facId, nil
+}
+
+var SpecCache = map[string]*RdeiUserSpec{}
+var SpecCacheLock sync.Mutex
+
+func saveCacheSpec(userId string, spec *RdeiUserSpec) {
+	SpecCacheLock.Lock()
+	defer SpecCacheLock.Unlock()
+	SpecCache[userId] = spec
+}
+
+func getCacheSpec(userId string) *RdeiUserSpec {
+	SpecCacheLock.Lock()
+	defer SpecCacheLock.Unlock()
+
+	if v, ok := SpecCache[userId]; ok {
+		return v
+	}
+	return nil
+}
+
+type RdeiUserSpec struct {
+	UserName    string `json:"userName"`
+	Email       string `json:"email"`
+	DisplayName string `json:"displayName"`
+}
+type RdeiUser struct {
+	Spec *RdeiUserSpec `json:"spec"`
+}
+
+func getUserName(userId string) (*RdeiUserSpec, error) {
+	url := os.Getenv("RDEI_URL")
+	if url == "" {
+		url = "https://api.rdei.comcast.net"
+	}
+	url += "/v1/users/" + userId
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating Request. %s", err.Error())
+	}
+	token := os.Getenv("RDEI_TOKEN")
+	if token == "" {
+		token = "8a9ecc88-c97f-4d18-a78b-d7f13ed408b6"
+	}
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Add("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	out := &RdeiUser{}
+	err = json.Unmarshal(body, &out)
+	fmt.Printf("Username=%+v \n", out.Spec.UserName)
+	return out.Spec, nil
+
+}
+
 // RequireLogin is a middleware that verifies if a user is logged in.
 func (h *Handlers) RequireLogin(next http.Handler) http.Handler {
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
 		var userID string
+
+		fmt.Printf("URL=%v, q=%v, raw=%v, rawq=%v \n", r.URL.Path, r.URL.Query(), r.URL.RawPath, r.URL.RawQuery)
+		queryValues := r.URL.Query()
+
+		rdeiSessionId := queryValues.Get(SIDNAME)
+
+		if rdeiSessionId != "" {
+			fmt.Printf("setCookie %s=%s \n", SIDNAME, rdeiSessionId)
+			setCookie(w, SIDNAME, rdeiSessionId)
+		} else {
+			idCookie, err := r.Cookie(SIDNAME)
+			if err == nil {
+				rdeiSessionId = idCookie.Value
+				fmt.Println("Read Cookie", rdeiSessionId)
+			} else {
+				fmt.Println("FAILED TO READ COOKIE", err)
+				if os.Getenv("RDEI_TENANT_LOCK") == "Y" {
+					helpers.RenderErrorWithCodeJSON(w, fmt.Errorf("SessionID required"), http.StatusUnauthorized)
+					return
+				}
+			}
+		}
 
 		// Extract API key id and secret from header
 		apiKeyID := r.Header.Get(APIKeyIDHeader)
 		apiKeySecret := r.Header.Get(APIKeySecretHeader)
+		fmt.Println("CALLING RequireLogin HandlerFunc", apiKeyID, apiKeySecret)
 
-		// Use API key based authentication if API key is provided
-		if apiKeyID != "" && apiKeySecret != "" {
+		if rdeiSessionId != "" {
+			rdeiUserId, _, err := validate(rdeiSessionId)
+			if err != nil {
+				helpers.RenderErrorWithCodeJSON(w, err, http.StatusUnauthorized)
+				return
+			}
+			userSpec := getCacheSpec(rdeiUserId)
+			if userSpec == nil {
+				spec1, err := getUserName(rdeiUserId)
+				if err != nil {
+					helpers.RenderErrorWithCodeJSON(w, fmt.Errorf("Failed getUserName - %v", err), http.StatusUnauthorized)
+					return
+				}
+				fmt.Printf("Saving %s in cache \n", rdeiUserId)
+				saveCacheSpec(rdeiUserId, spec1)
+				userSpec = spec1
+			} else {
+				fmt.Println("Got the cache for ", rdeiUserId)
+			}
+
+			userID, err = h.userManager.GetUserIDFromAlias(r.Context(), userSpec.UserName)
+			if err != nil {
+				fmt.Println("GetUserFromAliass=", err)
+				if err := h.userManager.AddUser(r.Context(), rdeiUserId, userSpec.UserName, userSpec.Email, userSpec.DisplayName); err != nil {
+					helpers.RenderErrorWithCodeJSON(w, fmt.Errorf("Failed AddUser - %v", err), http.StatusUnauthorized)
+					return
+				}
+				userID, err = h.userManager.GetUserIDFromAlias(r.Context(), userSpec.UserName)
+				if err != nil {
+					helpers.RenderErrorWithCodeJSON(w, fmt.Errorf("Failed GetUserFromAlias - %v", err), http.StatusUnauthorized)
+					return
+				}
+			}
+			fmt.Printf("userManager.GetUsreID userName=%s, artifactUserID=%s \n", userSpec.UserName, userID)
+
+		} else if apiKeyID != "" && apiKeySecret != "" {
+			// Use API key based authentication if API key is provided
 			// Check the API key provided is valid
 			checkAPIKeyOutput, err := h.apiKeyManager.Check(r.Context(), apiKeyID, apiKeySecret)
 			if err != nil {
@@ -830,10 +1020,14 @@ func (h *Handlers) RequireLogin(next http.Handler) http.Handler {
 
 				// Check the session provided is valid
 				checkSessionOutput, err := h.userManager.CheckSession(r.Context(), sessionID, sessionDuration)
+				fmt.Printf("Cookie=%s, sid=%s \n", cookie.Value, sessionID)
+
 				if err != nil {
 					h.logger.Error().Err(err).Str("method", "RequireLogin").Msg("checkSession failed")
 					helpers.RenderErrorWithCodeJSON(w, nil, http.StatusInternalServerError)
 					return
+				} else {
+					fmt.Println("SessionID=", checkSessionOutput.UserID)
 				}
 				if !checkSessionOutput.Valid {
 					helpers.RenderErrorWithCodeJSON(w, errInvalidSession, http.StatusUnauthorized)

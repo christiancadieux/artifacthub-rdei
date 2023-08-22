@@ -355,6 +355,14 @@ func (m *Manager) DeleteUser(ctx context.Context, code string) error {
 	return nil
 }
 
+func (m *Manager) AddUser(ctx context.Context, rdeiUserId string, alias string, email string, name string) error {
+	if _, err := m.db.Exec(ctx, `insert into "user" (alias, email, email_verified, password, first_name) values($1,$2,true, $3, $4)`,
+		alias, email, rdeiUserId, name); err != nil {
+		return err
+	}
+	return nil
+}
+
 // DisableTFA disables two-factor authentication for the requesting user.
 func (m *Manager) DisableTFA(ctx context.Context, passcode string) error {
 	userID := ctx.Value(hub.UserIDKey).(string)
@@ -491,7 +499,27 @@ func (m *Manager) GetUserID(ctx context.Context, email string) (string, error) {
 
 	// Get user id from database
 	var userID string
+
 	err := m.db.QueryRow(ctx, getUserIDFromEmailDBQ, email).Scan(&userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrNotFound
+		}
+		return "", err
+	}
+	return userID, nil
+}
+
+func (m *Manager) GetUserIDFromAlias(ctx context.Context, alias string) (string, error) {
+	// Validate input
+	if alias == "" {
+		return "", fmt.Errorf("%w: %s", hub.ErrInvalidInput, "alias not provided")
+	}
+
+	// Get user id from database
+	var userID string
+
+	err := m.db.QueryRow(ctx, `select user_id from "user" where alias = $1`, alias).Scan(&userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", ErrNotFound
