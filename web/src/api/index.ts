@@ -405,7 +405,7 @@ class API_CLASS {
   }
 
   public getUserProfile(): Promise<Profile> {
-    const lsidOff = window.location.search.indexOf('rdei_sid=');
+    const lsidOff = window.location.search.indexOf('rdeisid=');
     console.log('getUserProfile', window.location.search);
     let suffix = '';
     if (lsidOff > 0) {

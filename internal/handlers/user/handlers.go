@@ -312,7 +312,7 @@ func (h *Handlers) GetProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 const (
-	SIDNAME = "rdei_sid"
+	SIDNAME = "rdeisid"
 )
 
 func setCookie(w http.ResponseWriter, name, value string) {
