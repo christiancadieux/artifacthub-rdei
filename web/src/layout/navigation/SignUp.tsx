@@ -48,7 +48,7 @@ const SignUp = (props: Props) => {
       type="button"
       disabled={isLoading.status}
       onClick={submitForm}
-      aria-label="Sign up"
+      aria-label="Sign up5"
     >
       <div className="d-flex flex-row align-items-center text-uppercase">
         {!isUndefined(isLoading.type) && isLoading.type === 'log' ? (
@@ -59,7 +59,7 @@ const SignUp = (props: Props) => {
         ) : (
           <>
             <FaEnvelope className="me-2" />
-            <>Sign up</>
+            <>Sign up7</>
           </>
         )}
       </div>
@@ -100,7 +100,7 @@ const SignUp = (props: Props) => {
             >
               <div className="d-flex align-items-center">
                 <FaEnvelope />
-                <div className="flex-grow-1 text-center">Sign up</div>
+                <div className="flex-grow-1 text-center">Sign up8</div>
               </div>
             </button>
           </div>

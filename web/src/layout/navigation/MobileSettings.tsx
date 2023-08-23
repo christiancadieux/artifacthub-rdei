@@ -198,7 +198,7 @@ const MobileSettings = (props: Props) => {
                       >
                         <div className="d-flex align-items-center">
                           <FaEdit className="me-2" />
-                          <div>Sign up</div>
+                          <div>Sign up1</div>
                         </div>
                       </button>
                     )}

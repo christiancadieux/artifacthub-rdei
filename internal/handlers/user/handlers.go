@@ -2,6 +2,8 @@ package user
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
@@ -818,12 +820,6 @@ func (h *Handlers) newUserFromOIDProfile(
 	}, nil
 }
 
-const (
-	TOK_LEN = 36
-	SZ1     = 84
-	SZ2     = 40
-)
-
 func swap(s0 string) string {
 	s := []byte(s0)
 	i := 1
@@ -839,7 +835,79 @@ func swap(s0 string) string {
 	return string(s)
 }
 
-func validate(rdeiSessionId string) (string, string, error) {
+const (
+	TOK_LEN      = 36
+	SZ1          = 84
+	SZ2          = 40
+	LSID_LEN     = 72
+	LSID_KEY     = "9adcw0b853e95b8e"
+	LSID_MAX_MIN = 60 * 20
+	ID_SIZE      = 36
+)
+
+func GetLSIDKey() string {
+	k := os.Getenv("LSID_KEY")
+	if k != "" {
+		return k
+	}
+	return LSID_KEY
+}
+
+func LSID(text string) (string, error) {
+	text, err := Decrypt([]byte(GetLSIDKey()), text)
+	if err != nil {
+		return "", err
+	}
+	ts := text[ID_SIZE+1:]
+	val, err := strconv.ParseInt(ts, 10, 32)
+	if err != nil {
+		return "", err
+	}
+	now := time.Now().Unix()
+
+	if now-val > LSID_MAX_MIN*60 {
+		return "", fmt.Errorf("Expired LSID")
+	}
+	fmt.Println("LSID AGE=", now-val, "seconds")
+	return text[0:ID_SIZE], nil
+}
+
+func Decrypt(key []byte, cryptoText string) (string, error) {
+	ciphertext, _ := base64.URLEncoding.DecodeString(cryptoText)
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+
+	if len(ciphertext) < aes.BlockSize {
+		return "", fmt.Errorf("ciphertext too short")
+	}
+	iv := ciphertext[:aes.BlockSize]
+	ciphertext = ciphertext[aes.BlockSize:]
+
+	stream := cipher.NewCFBDecrypter(block, iv)
+
+	// XORKeyStream can work in-place if the two arguments are the same.
+	stream.XORKeyStream(ciphertext, ciphertext)
+
+	return fmt.Sprintf("%s", ciphertext), nil
+}
+
+func validate(rdeiSessionId string) (string, error) {
+
+	if len(rdeiSessionId) < LSID_LEN {
+		return "", fmt.Errorf("Invalid session length")
+	}
+	userId, err := LSID(rdeiSessionId)
+	fmt.Println("validate userid=", userId)
+	if err != nil {
+		return "", err
+	}
+	return userId, nil
+}
+
+func validate0(rdeiSessionId string) (string, string, error) {
 
 	if len(rdeiSessionId) != SZ1 {
 		return "", "", fmt.Errorf("Invalid session length")
@@ -865,10 +933,18 @@ func validate(rdeiSessionId string) (string, string, error) {
 var SpecCache = map[string]*RdeiUserSpec{}
 var SpecCacheLock sync.Mutex
 
-func saveCacheSpec(userId string, spec *RdeiUserSpec) {
+func saveCacheSpec(rdeiUserId string, spec *RdeiUserSpec) {
 	SpecCacheLock.Lock()
 	defer SpecCacheLock.Unlock()
-	SpecCache[userId] = spec
+	SpecCache[rdeiUserId] = spec
+}
+
+func saveCacheUserId(rdeiUserId, userId string) {
+	SpecCacheLock.Lock()
+	defer SpecCacheLock.Unlock()
+	if _, ok := SpecCache[rdeiUserId]; ok {
+		SpecCache[rdeiUserId].UserId = userId
+	}
 }
 
 func getCacheSpec(userId string) *RdeiUserSpec {
@@ -885,6 +961,7 @@ type RdeiUserSpec struct {
 	UserName    string `json:"userName"`
 	Email       string `json:"email"`
 	DisplayName string `json:"displayName"`
+	UserId      string `json:"userId"`
 }
 type RdeiUser struct {
 	Spec *RdeiUserSpec `json:"spec"`
@@ -896,7 +973,7 @@ func getUserName(userId string) (*RdeiUserSpec, error) {
 		url = "https://api.rdei.comcast.net"
 	}
 	url += "/v1/users/" + userId
-
+	fmt.Println("getUserName url=", url)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating Request. %s", err.Error())
@@ -917,7 +994,7 @@ func getUserName(userId string) (*RdeiUserSpec, error) {
 	body, err := io.ReadAll(resp.Body)
 	out := &RdeiUser{}
 	err = json.Unmarshal(body, &out)
-	fmt.Printf("Username=%+v \n", out.Spec.UserName)
+
 	return out.Spec, nil
 
 }
@@ -954,16 +1031,18 @@ func (h *Handlers) RequireLogin(next http.Handler) http.Handler {
 		// Extract API key id and secret from header
 		apiKeyID := r.Header.Get(APIKeyIDHeader)
 		apiKeySecret := r.Header.Get(APIKeySecretHeader)
-		fmt.Println("CALLING RequireLogin HandlerFunc", apiKeyID, apiKeySecret)
+		fmt.Println("CALLING RequireLogin HandlerFunc", apiKeyID, apiKeySecret, rdeiSessionId)
 
 		if rdeiSessionId != "" {
-			rdeiUserId, _, err := validate(rdeiSessionId)
+			rdeiUserId, err := validate(rdeiSessionId)
+			fmt.Println("After validate, rdeiUserId=", rdeiUserId)
 			if err != nil {
 				helpers.RenderErrorWithCodeJSON(w, err, http.StatusUnauthorized)
 				return
 			}
 			userSpec := getCacheSpec(rdeiUserId)
 			if userSpec == nil {
+				fmt.Println("Calling getUserName with", rdeiUserId)
 				spec1, err := getUserName(rdeiUserId)
 				if err != nil {
 					helpers.RenderErrorWithCodeJSON(w, fmt.Errorf("Failed getUserName - %v", err), http.StatusUnauthorized)
@@ -975,10 +1054,15 @@ func (h *Handlers) RequireLogin(next http.Handler) http.Handler {
 			} else {
 				fmt.Println("Got the cache for ", rdeiUserId)
 			}
-
-			userID, err = h.userManager.GetUserIDFromAlias(r.Context(), userSpec.UserName)
+			if userSpec != nil && userSpec.UserId != "" {
+				fmt.Println("USing userSpec.UserId")
+				userID = userSpec.UserId
+				err = nil
+			} else {
+				userID, err = h.userManager.GetUserIDFromAlias(r.Context(), userSpec.UserName)
+			}
 			if err != nil {
-				fmt.Println("GetUserFromAliass=", err)
+				fmt.Println("GetUserFromAlias=", err)
 				if err := h.userManager.AddUser(r.Context(), rdeiUserId, userSpec.UserName, userSpec.Email, userSpec.DisplayName); err != nil {
 					helpers.RenderErrorWithCodeJSON(w, fmt.Errorf("Failed AddUser - %v", err), http.StatusUnauthorized)
 					return
@@ -989,6 +1073,7 @@ func (h *Handlers) RequireLogin(next http.Handler) http.Handler {
 					return
 				}
 			}
+			saveCacheUserId(rdeiUserId, userID)
 			fmt.Printf("userManager.GetUsreID userName=%s, artifactUserID=%s \n", userSpec.UserName, userID)
 
 		} else if apiKeyID != "" && apiKeySecret != "" {

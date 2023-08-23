@@ -644,11 +644,14 @@ func (m *Manager) SearchJSON(
 ) (*hub.JSONQueryResult, error) {
 	// Validate input
 	if err := validateSearchInput(input); err != nil {
+		fmt.Println("validateSearchInput ERR", err)
 		return nil, err
 	}
 
 	// Search repositories in database
 	inputJSON, _ := json.Marshal(input)
+	fmt.Println("SEARCH JSON", searchRepositoriesDBQ)
+	fmt.Println("SEARCH INPUT", string(inputJSON))
 	return util.DBQueryJSONWithPagination(ctx, m.db, searchRepositoriesDBQ, inputJSON)
 }
 

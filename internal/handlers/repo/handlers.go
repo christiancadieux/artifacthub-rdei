@@ -127,7 +127,9 @@ func (h *Handlers) Delete(w http.ResponseWriter, r *http.Request) {
 // Search is an http handler used to search for repositories in the hub
 // database.
 func (h *Handlers) Search(w http.ResponseWriter, r *http.Request) {
+
 	input, err := buildSearchInput(r.URL.Query())
+	fmt.Printf("REPOSITORIES/SEARCH %+v \n", *input)
 	if err != nil {
 		err = fmt.Errorf("%w: %w", hub.ErrInvalidInput, err)
 		h.logger.Error().Err(err).Str("query", r.URL.RawQuery).Str("method", "Search").Msg("invalid query")

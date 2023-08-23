@@ -121,9 +121,7 @@ const Navbar = (props: Props) => {
                             )}
                             onClick={() => setOpenSignUp(true)}
                             aria-label="Open sign up modal"
-                          >
-                            Sign up
-                          </button>
+                          />
                         </li>
                       )}
 
@@ -137,7 +135,7 @@ const Navbar = (props: Props) => {
                           onClick={() => setOpenLogIn(true)}
                           aria-label="Open sign in modal"
                         >
-                          Sign in
+                          _
                         </button>
                       </li>
 
