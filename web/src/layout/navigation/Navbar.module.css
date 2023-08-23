@@ -1,6 +1,6 @@
 .navbar {
   background-color: var(--color-1-500);
-  min-height: 73px;
+  xmin-height: 73px;
 }
 
 .navbar:not(.homeNavbar) {

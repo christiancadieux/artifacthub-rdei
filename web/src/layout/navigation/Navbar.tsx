@@ -44,7 +44,7 @@ const Navbar = (props: Props) => {
   return (
     <>
       <nav
-        className={classnames('navbar navbar-top navbar-expand-lg navbar-dark border-top-0 p-2 p-sm-3', styles.navbar, {
+        className={classnames('navbar navbar-top navbar-expand-lg navbar-dark border-top-0 p-2', styles.navbar, {
           [`bg-transparent w-100 position-absolute ${styles.homeNavbar}`]: props.inHome,
         })}
       >
