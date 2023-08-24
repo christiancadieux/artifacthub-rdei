@@ -457,10 +457,6 @@ const RepositoryCard = (props: Props) => {
             <small className="text-muted text-uppercase me-1">Last processed: </small>
             <small>{getLastTracking()}</small>
           </div>
-          <div>
-            <small className="text-muted text-uppercase me-1">Last security scan: </small>
-            <small>{getLastScanning()}</small>
-          </div>
 
           <div className="mt-3 d-flex flex-row justify-content-end">
             {props.repository.disabled && <RepositoryDisabled className="ms-2" />}

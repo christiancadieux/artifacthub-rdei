@@ -786,7 +786,7 @@ const RepositoryModal = (props: Props) => {
               ref={nameInput}
               type="text"
               label="Name"
-              labelLegend={<small className="ms-1 fst-italic">(Required)</small>}
+              labelLegend={<small className="ms-1 fst-italic">(Required, alphanumeric and dash only)</small>}
               name="name"
               value={!isUndefined(props.repository) ? props.repository.name : ''}
               readOnly={!isUndefined(props.repository)}
