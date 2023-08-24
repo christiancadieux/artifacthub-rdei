@@ -139,6 +139,7 @@ const UpdateProfile = (props: Props) => {
 
       <InputField
         ref={usernameInput}
+        readOnly
         type="text"
         label="Username"
         labelLegend={<small className="ms-1 fst-italic">(Required)</small>}
@@ -162,6 +163,7 @@ const UpdateProfile = (props: Props) => {
         type="text"
         label="First Name"
         name="firstName"
+        readOnly
         autoComplete="given-name"
         value={!isUndefined(profile) && !isNull(profile) ? profile.firstName : ''}
       />
@@ -170,6 +172,7 @@ const UpdateProfile = (props: Props) => {
         type="text"
         label="Last Name"
         name="lastName"
+        readOnly
         autoComplete="family-name"
         value={!isUndefined(profile) && !isNull(profile) ? profile.lastName : ''}
       />

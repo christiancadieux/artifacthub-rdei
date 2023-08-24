@@ -48,33 +48,16 @@ const ProfileSection = (props: Props) => {
           {profile.passwordSet && (
             <>
               <div className="mb-5">
-                <div className={`h3 mb-4 pb-2 border-bottom border-1 ${styles.title}`}>Change password</div>
-
-                <div className={`mt-4 mt-md-5 ${styles.formWrapper}`}>
-                  <UpdatePassword />
-                </div>
-              </div>
-
-              <div className="mb-5">
                 <div className={`h3 mb-4 pb-2 border-bottom border-1 ${styles.title}`}>Two-factor authentication</div>
 
-                <div className="mt-4 mt-md-5">
-                  <TwoFactorAuth
-                    tfaEnabled={profile.tfaEnabled || false}
-                    onAuthError={props.onAuthError}
-                    onChange={fetchProfile}
-                  />
-                </div>
+                <div className="mt-4 mt-md-5">Off</div>
               </div>
             </>
           )}
         </>
       )}
-
-      <div className={`h3 mb-4 pb-2 border-bottom border-1 ${styles.title}`}>Delete account</div>
-      <DeleteAccount onAuthError={props.onAuthError} />
     </main>
-  );
+  ); /* eslint-disable-line */
 };
 
 export default ProfileSection;

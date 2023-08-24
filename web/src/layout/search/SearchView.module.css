@@ -1,6 +1,6 @@
 .subnavbar {
-  min-height: 48px;
-  padding: 10px 0.5rem;
+  min-height: 40px!important;
+  padding: 4px 0.5rem;
 }
 
 .sidebar {
