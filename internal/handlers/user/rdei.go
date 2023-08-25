@@ -197,15 +197,15 @@ func getUserName(userId string) (*RdeiUserSpec, error) {
 }
 
 func setCookie(w http.ResponseWriter, name, value string) {
-	dur := os.Getenv("SESSION_MINS")
-	dur_m := int64(60)
+	dur := os.Getenv("SESSION_HOURS")
+	dur_h := int64(24)
 	if dur != "" {
 		v, err := strconv.ParseInt(dur, 10, 32)
 		if err == nil {
-			dur_m = v
+			dur_h = v
 		}
 	}
-	expiration := time.Now().Add(time.Duration(dur_m) * time.Minute)
+	expiration := time.Now().Add(time.Duration(dur_h) * time.Hour)
 	cookie := http.Cookie{Name: name, Value: value, Expires: expiration, Path: "/"}
 	http.SetCookie(w, &cookie)
 	log.Print(cookie)
@@ -215,10 +215,11 @@ func (h *Handlers) rdeiSaveSID(w http.ResponseWriter, r *http.Request, userManag
 	queryValues := r.URL.Query()
 
 	rdeiSessionId := queryValues.Get(SIDNAME)
-
+	createSession := false
 	if rdeiSessionId != "" {
 		fmt.Printf("setCookie %s=%s \n", SIDNAME, rdeiSessionId)
 		setCookie(w, SIDNAME, rdeiSessionId)
+		createSession = true
 	} else {
 		idCookie, err := r.Cookie(SIDNAME)
 		if err == nil {
@@ -272,9 +273,12 @@ func (h *Handlers) rdeiSaveSID(w http.ResponseWriter, r *http.Request, userManag
 		fmt.Printf("userManager.GetUsreID userName=%s, artifactUserID=%s \n", userSpec.UserName, userID)
 
 	}
-	if userID != "" {
-		session := h.setSessionCookie(w, r, userID)
-		fmt.Println("SESSION=", session.SessionID)
+	if userID != "" && createSession {
+		_, err := r.Cookie(sessionCookieName)
+		if err != nil || os.Getenv("NEW_SESSION") == "Y" {
+			session := h.setSessionCookie(w, r, userID)
+			fmt.Println("NEW SESSION=", session.SessionID)
+		}
 	}
 	return userID, rdeiSessionId, nil
 }

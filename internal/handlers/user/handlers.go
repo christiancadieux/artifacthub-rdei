@@ -50,7 +50,7 @@ const (
 
 	sessionCookieName    = "sid"
 	oauthStateCookieName = "oas"
-	sessionDuration      = 30 * 24 * time.Hour
+	sessionDuration      = 7 * 24 * time.Hour
 	oauthFailedURL       = "/oauth-failed"
 )
 
